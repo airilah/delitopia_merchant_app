@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'src/core/constants/app_constants.dart';
 import 'src/screens/merchant_webview_screen.dart';
+import 'src/screens/overlay/merchant_order_bubble.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,6 +18,18 @@ void main() async {
   );
 
   runApp(const DelitopiaMerchantApp());
+}
+
+/// Entry point for the floating overlay bubble isolate
+@pragma("vm:entry-point")
+void overlayMain() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(
+    const MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: MerchantOrderBubble(),
+    ),
+  );
 }
 
 class DelitopiaMerchantApp extends StatelessWidget {

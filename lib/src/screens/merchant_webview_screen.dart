@@ -6,6 +6,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 import '../core/constants/app_constants.dart';
 import '../core/services/alarm_audio_service.dart';
+import '../core/services/overlay_service.dart';
 import 'widgets/error_connection_view.dart';
 
 class MerchantWebViewScreen extends StatefulWidget {
@@ -18,6 +19,7 @@ class MerchantWebViewScreen extends StatefulWidget {
 class _MerchantWebViewScreenState extends State<MerchantWebViewScreen> {
   late final WebViewController _controller;
   final AlarmAudioService _alarmAudioService = AlarmAudioService();
+  final OverlayService _overlayService = OverlayService();
   int _loadingProgress = 0;
   bool _isLoading = true;
   bool _hasError = false;
@@ -28,7 +30,55 @@ class _MerchantWebViewScreenState extends State<MerchantWebViewScreen> {
   void initState() {
     super.initState();
     _alarmAudioService.init();
+    _overlayService.initListener();
     _initWebView();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkOverlayPermission();
+    });
+  }
+
+  Future<void> _checkOverlayPermission() async {
+    final granted = await _overlayService.isPermissionGranted();
+    if (!granted && mounted) {
+      await Future.delayed(const Duration(seconds: 2));
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.layers_rounded, color: Color(AppConstants.primaryColorHex)),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text('Izin Tampilan Melayang', style: TextStyle(fontSize: 16)),
+              ),
+            ],
+          ),
+          content: const Text(
+            'Agar pesanan Delitopia tetap muncul di atas aplikasi Grab Merchant & ShopeeFood, aktifkan izin "Tampilkan di atas aplikasi lain".',
+            style: TextStyle(fontSize: 13),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Nanti Saja'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _overlayService.requestPermission();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(AppConstants.primaryColorHex),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Aktifkan'),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   @override
@@ -117,11 +167,18 @@ class _MerchantWebViewScreenState extends State<MerchantWebViewScreen> {
 
         if (soundType == 'new_order' || soundType == 'orderbaru') {
           _alarmAudioService.playOrderAlarm(repeat: repeatCount);
+          _overlayService.showOrderBubble(
+            orderId: data['order_id']?.toString() ?? data['id']?.toString() ?? 'Baru',
+            tableOrType: data['table']?.toString() ?? data['table_number']?.toString() ?? 'Pesanan Masuk',
+            totalAmount: data['total']?.toString() ?? data['total_amount']?.toString(),
+          );
         } else if (soundType == 'payment_success' || soundType == 'berhasilbayar') {
           _alarmAudioService.playPaymentSuccess();
         }
       } else if (action == 'stop_sound') {
         _alarmAudioService.stop();
+      } else if (action == 'close_overlay') {
+        _overlayService.closeOverlay();
       }
     } catch (e) {
       debugPrint('[NativeBridge] Error parsing bridge message: $e');
