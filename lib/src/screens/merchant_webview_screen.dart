@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 import '../core/constants/app_constants.dart';
@@ -150,6 +151,33 @@ class _MerchantWebViewScreenState extends State<MerchantWebViewScreen> {
       final androidController = controller.platform as AndroidWebViewController;
       AndroidWebViewController.enableDebugging(false);
       androidController.setMediaPlaybackRequiresUserGesture(false);
+
+      // Handle HTML5 Camera & Microphone permission requests (for QR / Barcode Scanner)
+      androidController.setOnPlatformPermissionRequest((request) async {
+        debugPrint('[WebView] onPermissionRequest: ${request.types}');
+        try {
+          if (request.types.contains(WebViewPermissionResourceType.camera)) {
+            final status = await Permission.camera.request();
+            if (status.isGranted) {
+              await request.grant();
+            } else {
+              await request.deny();
+            }
+          } else if (request.types.contains(WebViewPermissionResourceType.microphone)) {
+            final status = await Permission.microphone.request();
+            if (status.isGranted) {
+              await request.grant();
+            } else {
+              await request.deny();
+            }
+          } else {
+            await request.grant();
+          }
+        } catch (e) {
+          debugPrint('[WebView] Error requesting platform permission: $e');
+          await request.grant();
+        }
+      });
     }
 
     _controller = controller;
