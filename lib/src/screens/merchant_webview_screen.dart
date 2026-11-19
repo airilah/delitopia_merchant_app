@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 import '../core/constants/app_constants.dart';
+import '../core/services/alarm_audio_service.dart';
 import 'widgets/error_connection_view.dart';
 
 class MerchantWebViewScreen extends StatefulWidget {
@@ -15,6 +17,7 @@ class MerchantWebViewScreen extends StatefulWidget {
 
 class _MerchantWebViewScreenState extends State<MerchantWebViewScreen> {
   late final WebViewController _controller;
+  final AlarmAudioService _alarmAudioService = AlarmAudioService();
   int _loadingProgress = 0;
   bool _isLoading = true;
   bool _hasError = false;
@@ -24,7 +27,14 @@ class _MerchantWebViewScreenState extends State<MerchantWebViewScreen> {
   @override
   void initState() {
     super.initState();
+    _alarmAudioService.init();
     _initWebView();
+  }
+
+  @override
+  void dispose() {
+    _alarmAudioService.dispose();
+    super.dispose();
   }
 
   void _initWebView() {
@@ -97,7 +107,25 @@ class _MerchantWebViewScreenState extends State<MerchantWebViewScreen> {
 
   void _handleNativeBridgeMessage(JavaScriptMessage message) {
     debugPrint('[NativeBridge] Message received: ${message.message}');
-    // In Phase 2, this will be wired to trigger native audio and bubble directly
+    try {
+      final data = jsonDecode(message.message) as Map<String, dynamic>;
+      final action = data['action'] as String?;
+
+      if (action == 'play_sound') {
+        final soundType = (data['soundType'] ?? data['sound'] ?? '').toString().toLowerCase();
+        final repeatCount = (data['repeatCount'] as num?)?.toInt() ?? 3;
+
+        if (soundType == 'new_order' || soundType == 'orderbaru') {
+          _alarmAudioService.playOrderAlarm(repeat: repeatCount);
+        } else if (soundType == 'payment_success' || soundType == 'berhasilbayar') {
+          _alarmAudioService.playPaymentSuccess();
+        }
+      } else if (action == 'stop_sound') {
+        _alarmAudioService.stop();
+      }
+    } catch (e) {
+      debugPrint('[NativeBridge] Error parsing bridge message: $e');
+    }
   }
 
   Future<void> _handleRefresh() async {
