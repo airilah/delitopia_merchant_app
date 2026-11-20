@@ -76,6 +76,14 @@ class _MerchantOrderBubbleState extends State<MerchantOrderBubble>
     await FlutterOverlayWindow.closeOverlay();
   }
 
+  void _openCashierApp() async {
+    FlutterOverlayWindow.shareData(jsonEncode({
+      'action': 'open_app',
+      'order_id': _orderId,
+    }));
+    await FlutterOverlayWindow.closeOverlay();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Material(
@@ -295,7 +303,7 @@ class _MerchantOrderBubbleState extends State<MerchantOrderBubble>
               const SizedBox(width: 8),
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: _dismissOverlay,
+                  onPressed: _openCashierApp,
                   icon: const Icon(Icons.check_circle_outline_rounded, size: 16),
                   label: const Text('Buka Kasir', style: TextStyle(fontSize: 12)),
                   style: ElevatedButton.styleFrom(

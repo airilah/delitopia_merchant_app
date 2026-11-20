@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'alarm_audio_service.dart';
+import 'native_keep_alive_service.dart';
 
 class OverlayService {
   static final OverlayService _instance = OverlayService._internal();
@@ -9,8 +10,12 @@ class OverlayService {
   OverlayService._internal();
 
   bool _isListening = false;
+  void Function(String? orderId)? onOpenOrdersRequested;
 
-  void initListener() {
+  void initListener({void Function(String? orderId)? onOpenOrders}) {
+    if (onOpenOrders != null) {
+      onOpenOrdersRequested = onOpenOrders;
+    }
     if (_isListening) return;
     _isListening = true;
 
@@ -27,6 +32,11 @@ class OverlayService {
           AlarmAudioService().stop();
         } else if (action == 'close_overlay') {
           closeOverlay();
+        } else if (action == 'open_app') {
+          AlarmAudioService().stop();
+          closeOverlay();
+          NativeKeepAliveService().bringAppToFront();
+          onOpenOrdersRequested?.call(data['order_id']?.toString());
         }
       } catch (e) {
         debugPrint('[OverlayService] Error parsing overlay message: $e');
